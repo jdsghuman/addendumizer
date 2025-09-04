@@ -139,8 +139,9 @@ const AddendumPage: React.FC = () => {
     const node = contentRef.current;
     if (!node) return;
     setIsDownloading(true);
-
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((document as any).fonts?.ready) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (document as any).fonts.ready;
     }
 
