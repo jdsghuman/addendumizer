@@ -138,26 +138,43 @@ const AddendumPage: React.FC = () => {
   const removeLine = (id: string) =>
     setLines((prev) => prev.filter((l) => l.id !== id));
 
-  const handleDownloadPDF = async (): Promise<void> => {
+  const PAGE = "letter"; // "letter" or "a4"
+  const CSS_WIDTH = PAGE === "letter" ? 1006 : 794; // target layout width in CSS px
+
+  const handleDownloadPDF = async () => {
     const node = contentRef.current;
     if (!node) return;
+
     setIsDownloading(true);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if ((document as any).fonts?.ready) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (document as any).fonts.ready;
-    }
+    // optional: ensure fonts are ready
+    if (document.fonts?.ready) await document.fonts.ready;
+
+    // --- temporarily force layout to a page-like width ---
+    const prevWidth = node.style.width;
+    const prevMaxWidth = (node.style as CSSStyleDeclaration).maxWidth;
+    node.style.width = `${CSS_WIDTH}px`;
+    node.style.maxWidth = `${CSS_WIDTH}px`;
+
+    // let layout settle
+    await new Promise((r) => requestAnimationFrame(r));
 
     const canvas = await html2canvas(node, {
-      scale: 2,
+      scale: 1,
       useCORS: true,
       backgroundColor: "#ffffff",
     });
-    const imgData = canvas.toDataURL("image/png");
 
-    const pdf = new jsPDF("p", "mm", "a4");
+    // restore styles
+    node.style.width = prevWidth;
+    node.style.maxWidth = prevMaxWidth;
+
+    // --- build PDF ---
+    const pdf = new jsPDF("p", "mm", PAGE); // match page size to target
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
+
+    // use JPEG to keep size small; bump quality if needed
+    const imgData = canvas.toDataURL("image/jpeg", 0.85);
 
     const imgWidth = pageWidth;
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
@@ -165,17 +182,17 @@ const AddendumPage: React.FC = () => {
     let heightLeft = imgHeight;
     let position = 0;
 
-    pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+    pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
     heightLeft -= pageHeight;
 
     while (heightLeft > 0) {
       position = heightLeft - imgHeight;
       pdf.addPage();
-      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+      pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
     }
 
-    pdf.save("addendum.pdf");
+    pdf.save(`${tenantName}-addendum.pdf`);
   };
 
   const handleAddLessee = () => {
@@ -183,6 +200,35 @@ const AddendumPage: React.FC = () => {
       setLesseeCount(2);
     }
   };
+
+  // ------- Signature row helper (border-bottom instead of underscores) -------
+  const SigLine: React.FC<{
+    label: string;
+    widthClass?: string; // e.g. "min-w-[220px]"
+    placeholder?: string;
+    type?: string;
+  }> = ({
+    label,
+    widthClass = "min-w-[220px]",
+    placeholder = "",
+    type = "lessor",
+  }) => (
+    <div
+      className={`flex items-end gap-2 ${type === "lessor" ? "mt-6" : "mt-12"}`}
+    >
+      <span className="whitespace-nowrap">{label}</span>
+      {!isDownloading ? (
+        <input
+          className={`flex-1 bg-transparent outline-none border-0 border-b border-black ${widthClass}`}
+          placeholder={placeholder}
+        />
+      ) : (
+        <span className={`inline-block border-b border-black ${widthClass}`}>
+          &nbsp;
+        </span>
+      )}
+    </div>
+  );
 
   useEffect(() => {
     if (isDownloading) {
@@ -458,8 +504,9 @@ const AddendumPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setLesseeCount(1)}
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-gray-300 text-sm hover:bg-gray-50 ml-4 bg-red-500"
-                  title="Add line"
+                  className="ml-4 inline-flex h-8 w-8 items-center justify-center rounded-md
+                             bg-[#dc2626] text-white hover:bg-[#b91c1c]"
+                  title="Remove extra LESSEE"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -479,23 +526,32 @@ const AddendumPage: React.FC = () => {
               )}
             </div>
           )}
+
+          {/* ----- Signature sections (no underscores; proper border lines) ----- */}
           <div
-            className={`mx-auto mt-2 ${
-              lesseeCount === 1 ? "max-w-[700]" : "max-w-[1200]"
-            } flex flex-col lg:flex-row gap-12 sm:gap-0 justify-between font-sans ${
-              isDownloading ? "mt-18" : ""
+            className={`mt-8 flex flex-col lg:flex-row justify-between font-sans max-w-[500px] ${
+              isDownloading ? "max-w-none" : ""
             }`}
           >
-            <div>
+            {/* Lessor */}
+            <div className="mx-8 lg:mx-0 max-w-[250px]">
               <p className="mb-2 underline">LESSOR:</p>
               <p>AKAL GROUP LLC D/B/A</p>
               <p>LAKE DEXTER PLAZA</p>
-              <p className="mt-12">By:______________________________</p>
-              <p className="ml-8">J.S. Ghuman</p>
-              <p className="mt-12">Date:____________________________</p>
+
+              <SigLine label="By:" placeholder="Signature" />
+              <div className="ml-8 mt-2">J.S. Ghuman</div>
+
+              <SigLine
+                label="Date:"
+                widthClass="min-w-[180px]"
+                placeholder="MM/DD/YYYY"
+              />
             </div>
-            <div>
-              <p className="mb-2 mt-8 md:mt-0 underline">LESSEE:</p>
+
+            {/* Lessee 1 */}
+            <div className="mx-8 lg:mx-8 max-w-[250px] flex-1">
+              <p className="mb-2 mt-8 lg:mt-0 underline">LESSEE:</p>
               <p>
                 <EditableInline
                   value={lesseeCompanyName}
@@ -510,8 +566,9 @@ const AddendumPage: React.FC = () => {
                   placeholder="Tenant name"
                 />
               </p>
-              <p className="mt-18">By:______________________________</p>
-              <p className="ml-8">
+
+              <SigLine label="By:" placeholder="Signature" type="lessee" />
+              <div className="ml-8 mt-2">
                 {!isDownloading ? (
                   <EditableInline
                     value={lesseeName}
@@ -526,12 +583,19 @@ const AddendumPage: React.FC = () => {
                 ) : (
                   <span>{lesseeName}</span>
                 )}
-              </p>
-              <p className="mt-12">Date:____________________________</p>
+              </div>
+
+              <SigLine
+                label="Date:"
+                widthClass="min-w-[180px]"
+                placeholder="MM/DD/YYYY"
+              />
             </div>
+
+            {/* Lessee 2 (optional) */}
             {lesseeCount === 2 && (
-              <div>
-                <p className="mb-2 mt-8 md:mt-0 underline">LESSEE:</p>
+              <div className="mx-8 lg:mx-8 max-w-[250px] flex-1">
+                <p className="mb-2 mt-8 lg:mt-0 underline">LESSEE:</p>
                 <p>
                   <EditableInline
                     value={lesseeCompanyName}
@@ -540,7 +604,7 @@ const AddendumPage: React.FC = () => {
                         v.replace(/[“”"]/g, "").toUpperCase()
                       )
                     }
-                    ariaLabel="Tenant name"
+                    ariaLabel="Tenant name 2"
                     className={`text-center w-auto inline p-0 m-0 align-baseline
                          ${lesseeCompanyName ? "min-w-0" : "min-w-24"}
                          placeholder-shown:bg-[#fecaca] placeholder-shown:text-red-800
@@ -548,13 +612,14 @@ const AddendumPage: React.FC = () => {
                     placeholder="Tenant name"
                   />
                 </p>
-                <p className="mt-18">By:______________________________</p>
-                <p className="ml-8">
+
+                <SigLine label="By:" placeholder="Signature" type="lessee" />
+                <div className="ml-8 mt-2">
                   {!isDownloading ? (
                     <EditableInline
                       value={lesseeName2}
                       onChange={(v) => setLesseeName2(v.replace(/[“”"]/g, ""))}
-                      ariaLabel="Lessee name"
+                      ariaLabel="Lessee name 2"
                       className={`text-center w-auto inline p-0 m-0 align-baseline
                          ${lesseeName2 ? "min-w-0" : "min-w-24"}
                          placeholder-shown:bg-[#fecaca] placeholder-shown:text-red-800
@@ -564,8 +629,13 @@ const AddendumPage: React.FC = () => {
                   ) : (
                     <span>{lesseeName2}</span>
                   )}
-                </p>
-                <p className="mt-12">Date:____________________________</p>
+                </div>
+
+                <SigLine
+                  label="Date:"
+                  widthClass="min-w-[180px]"
+                  placeholder="MM/DD/YYYY"
+                />
               </div>
             )}
           </div>
