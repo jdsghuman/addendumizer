@@ -482,7 +482,9 @@ const AddendumPage: React.FC = () => {
           <div
             className={`mx-auto mt-2 ${
               lesseeCount === 1 ? "max-w-[700]" : "max-w-[1200]"
-            } flex flex-col lg:flex-row gap-12 sm:gap-0 justify-between font-sans`}
+            } flex flex-col lg:flex-row gap-12 sm:gap-0 justify-between font-sans ${
+              isDownloading ? "mt-18" : ""
+            }`}
           >
             <div>
               <p className="mb-2 underline">LESSOR:</p>
