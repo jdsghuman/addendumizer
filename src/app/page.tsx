@@ -118,8 +118,11 @@ const AddendumPage: React.FC = () => {
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
   const [lesseeCompanyName, setLesseeCompanyName] = useState<string>("");
+  const [lesseeCompanyName2, setLesseeCompanyName2] = useState<string>("");
   const [lesseeName, setLesseeName] = useState<string>("");
+  const [lesseeName2, setLesseeName2] = useState<string>("");
   const [isDownloading, setIsDownloading] = useState(false);
+  const [lesseeCount, setLesseeCount] = useState(1);
 
   // For conditional width classes (preserve your widths only when filled)
   const hasTenant = tenantName.trim().length > 0;
@@ -173,6 +176,12 @@ const AddendumPage: React.FC = () => {
     }
 
     pdf.save("addendum.pdf");
+  };
+
+  const handleAddLessee = () => {
+    if (lesseeCount === 1) {
+      setLesseeCount(2);
+    }
   };
 
   useEffect(() => {
@@ -419,7 +428,62 @@ const AddendumPage: React.FC = () => {
               ))}
             </div>
           )}
-          <div className="mx-auto mt-20 max-w-[700] flex flex-col lg:flex-row gap-12 sm:gap-0 justify-between font-sans">
+          {!isDownloading && (
+            <div className="mt-20 flex">
+              <button
+                type="button"
+                onClick={handleAddLessee}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-gray-300 text-sm hover:bg-gray-50"
+                title="Add line"
+              >
+                {/* plus icon (SVG) */}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                Add LESSEE
+              </button>
+              {lesseeCount === 2 && (
+                <button
+                  type="button"
+                  onClick={() => setLesseeCount(1)}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-gray-300 text-sm hover:bg-gray-50 ml-4 bg-red-500"
+                  title="Add line"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="pointer-events-none"
+                  >
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          )}
+          <div
+            className={`mx-auto mt-2 ${
+              lesseeCount === 1 ? "max-w-[700]" : "max-w-[1200]"
+            } flex flex-col lg:flex-row gap-12 sm:gap-0 justify-between font-sans`}
+          >
             <div>
               <p className="mb-2 underline">LESSOR:</p>
               <p>AKAL GROUP LLC D/B/A</p>
@@ -434,7 +498,7 @@ const AddendumPage: React.FC = () => {
                 <EditableInline
                   value={lesseeCompanyName}
                   onChange={(v) =>
-                    setLesseeCompanyName(v.replace(/[“”"]/g, ""))
+                    setLesseeCompanyName(v.replace(/[“”"]/g, "").toUpperCase())
                   }
                   ariaLabel="Tenant name"
                   className={`text-center w-auto inline p-0 m-0 align-baseline
@@ -463,6 +527,45 @@ const AddendumPage: React.FC = () => {
               </p>
               <p className="mt-12">Date:____________________________</p>
             </div>
+            {lesseeCount === 2 && (
+              <div>
+                <p className="mb-2 mt-8 md:mt-0 underline">LESSEE:</p>
+                <p>
+                  <EditableInline
+                    value={lesseeCompanyName}
+                    onChange={(v) =>
+                      setLesseeCompanyName(
+                        v.replace(/[“”"]/g, "").toUpperCase()
+                      )
+                    }
+                    ariaLabel="Tenant name"
+                    className={`text-center w-auto inline p-0 m-0 align-baseline
+                         ${lesseeCompanyName ? "min-w-0" : "min-w-24"}
+                         placeholder-shown:bg-[#fecaca] placeholder-shown:text-red-800
+                         placeholder-shown:outline placeholder-shown:outline-red-500`}
+                    placeholder="Tenant name"
+                  />
+                </p>
+                <p className="mt-18">By:______________________________</p>
+                <p className="ml-8">
+                  {!isDownloading ? (
+                    <EditableInline
+                      value={lesseeName2}
+                      onChange={(v) => setLesseeName2(v.replace(/[“”"]/g, ""))}
+                      ariaLabel="Lessee name"
+                      className={`text-center w-auto inline p-0 m-0 align-baseline
+                         ${lesseeName2 ? "min-w-0" : "min-w-24"}
+                         placeholder-shown:bg-[#fecaca] placeholder-shown:text-red-800
+                         placeholder-shown:outline placeholder-shown:outline-red-500`}
+                      placeholder="Lessee name"
+                    />
+                  ) : (
+                    <span>{lesseeName2}</span>
+                  )}
+                </p>
+                <p className="mt-12">Date:____________________________</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
